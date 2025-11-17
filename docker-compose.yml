@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: couplecal_db
+    environment:
+      POSTGRES_USER: couplecal_user
+      POSTGRES_PASSWORD: couplecal_password
+      POSTGRES_DB: couplecal_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U couplecal_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # FastAPI Backend
+  api:
+    build: .
+    container_name: couplecal_api
+    environment:
+      DATABASE_URL: postgresql://couplecal_user:couplecal_password@postgres:5432/couplecal_db
+      JWT_SECRET_KEY: your-production-secret-key-change-this
+      DEBUG: "False"
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    command: >
+      sh -c "alembic upgrade head && 
+             uvicorn main:app --host 0.0.0.0 --port 8000"
+
+  # Redis (Optional - for caching)
+  redis:
+    image: redis:7-alpine
+    container_name: couplecal_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+volumes:
+  postgres_data:
+  redis_data:
+

@@ -25,6 +25,13 @@ class Settings(BaseSettings):
         "http://localhost:19006"
     ]
     
+    # OAuth
+    GOOGLE_CLIENT_ID: str = ""
+    APPLE_CLIENT_ID: str = ""  # Service ID from Apple Developer
+    APPLE_TEAM_ID: str = ""
+    APPLE_KEY_ID: str = ""
+    APPLE_PRIVATE_KEY: str = ""  # Path to .p8 file or the key content
+    
     # Email (for future use)
     SMTP_HOST: str = "smtp.gmail.com"
     SMTP_PORT: int = 587

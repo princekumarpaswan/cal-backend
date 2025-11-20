@@ -16,6 +16,8 @@ from app.schemas.auth import (
     TokenPair,
     TokenResponse,
     UserResponse,
+    OAuthLoginRequest,
+    OAuthSignupRequest,
 )
 from app.core.config import settings
 from app.models.models import User
@@ -114,5 +116,49 @@ class AuthController:
         return MessageResponse(
             success=True,
             message="Email verified successfully"
+        )
+    
+    async def oauth_login(self, oauth_data: OAuthLoginRequest) -> LoginResponse:
+        """Handle OAuth login (Google/Apple)."""
+        user, access_token, refresh_token_str = await self.service.oauth_login(
+            oauth_data.provider,
+            oauth_data.idToken,
+            name=None,  # Name is handled separately for signup
+            timezone="UTC"
+        )
+        
+        return LoginResponse(
+            success=True,
+            data=TokenResponse(
+                user=UserResponse.from_orm_model(user),
+                tokens=TokenPair(
+                    accessToken=access_token,
+                    refreshToken=refresh_token_str,
+                    expiresIn=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+                )
+            ),
+            message="Login successful"
+        )
+    
+    async def oauth_signup(self, oauth_data: OAuthSignupRequest) -> SignupResponse:
+        """Handle OAuth signup (Google/Apple) with additional info."""
+        user, access_token, refresh_token_str = await self.service.oauth_login(
+            oauth_data.provider,
+            oauth_data.idToken,
+            name=oauth_data.name,
+            timezone=oauth_data.timezone or "UTC"
+        )
+        
+        return SignupResponse(
+            success=True,
+            data=TokenResponse(
+                user=UserResponse.from_orm_model(user),
+                tokens=TokenPair(
+                    accessToken=access_token,
+                    refreshToken=refresh_token_str,
+                    expiresIn=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+                )
+            ),
+            message="Account created successfully"
         )
 

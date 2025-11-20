@@ -1,5 +1,5 @@
 """Router for family endpoints."""
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Path, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.database import get_db
 from app.api.dependencies import get_current_user
@@ -36,11 +36,14 @@ async def create_family_group(
 
 @router.get("/groups/{group_id}")
 async def get_family_group(
-    group_id: str,
+    group_id: str = Path(..., pattern="^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", description="Family group UUID"),
     current_user: User = Depends(get_current_user),
     controller: FamilyController = Depends(get_family_controller)
 ):
-    """Get family group details."""
+    """Get family group details.
+    
+    - **group_id**: Family group UUID
+    """
     return await controller.get_family_group(group_id, current_user)
 
 
@@ -55,11 +58,14 @@ async def get_user_family_groups(
 
 @router.post("/groups/{group_id}/invite", response_model=InviteMemberResponse)
 async def invite_family_member(
-    group_id: str,
-    invite_data: InviteMemberRequest,
+    group_id: str = Path(..., pattern="^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", description="Family group UUID"),
+    invite_data: InviteMemberRequest = ...,
     current_user: User = Depends(get_current_user),
     controller: FamilyController = Depends(get_family_controller)
 ):
-    """Invite a member to a family group."""
+    """Invite a member to a family group.
+    
+    - **group_id**: Family group UUID
+    """
     return await controller.invite_member(group_id, current_user, invite_data)
 

@@ -23,6 +23,16 @@ class AuthRepository:
         result = await self.db.execute(select(User).where(User.id == user_id))
         return result.scalar_one_or_none()
     
+    async def get_user_by_oauth_provider(self, provider: str, provider_user_id: str) -> Optional[User]:
+        """Get user by OAuth provider and provider user ID."""
+        result = await self.db.execute(
+            select(User).where(
+                User.auth_provider == provider,
+                User.oauth_provider_id == provider_user_id
+            )
+        )
+        return result.scalar_one_or_none()
+    
     async def create_user(self, name: str, email: str, password_hash: str) -> User:
         """Create a new user."""
         new_user = User(
@@ -30,6 +40,32 @@ class AuthRepository:
             email=email,
             password_hash=password_hash,
             email_verified=False,
+        )
+        self.db.add(new_user)
+        await self.db.commit()
+        await self.db.refresh(new_user)
+        return new_user
+    
+    async def create_oauth_user(
+        self,
+        name: str,
+        email: str,
+        provider: str,
+        provider_user_id: str,
+        email_verified: bool = False,
+        avatar_url: Optional[str] = None,
+        timezone: str = "UTC"
+    ) -> User:
+        """Create a new user from OAuth provider."""
+        new_user = User(
+            name=name,
+            email=email,
+            password_hash=None,  # No password for OAuth users
+            email_verified=email_verified,
+            auth_provider=provider,
+            oauth_provider_id=provider_user_id,
+            avatar_url=avatar_url,
+            timezone=timezone
         )
         self.db.add(new_user)
         await self.db.commit()

@@ -16,6 +16,8 @@ from app.schemas.auth import (
     ResetPasswordRequest,
     VerifyEmailRequest,
     MessageResponse,
+    OAuthLoginRequest,
+    OAuthSignupRequest,
 )
 from app.repository.auth_repository import AuthRepository
 from app.service.auth_service import AuthService
@@ -93,4 +95,22 @@ async def verify_email(
 ):
     """Verify email address using token."""
     return await controller.verify_email(request_data)
+
+
+@router.post("/oauth/login", response_model=LoginResponse)
+async def oauth_login(
+    oauth_data: OAuthLoginRequest,
+    controller: AuthController = Depends(get_auth_controller)
+):
+    """Login with Google or Apple."""
+    return await controller.oauth_login(oauth_data)
+
+
+@router.post("/oauth/signup", response_model=SignupResponse, status_code=status.HTTP_201_CREATED)
+async def oauth_signup(
+    oauth_data: OAuthSignupRequest,
+    controller: AuthController = Depends(get_auth_controller)
+):
+    """Signup with Google or Apple (with additional info)."""
+    return await controller.oauth_signup(oauth_data)
 

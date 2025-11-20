@@ -1,35 +1,50 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, EmailStr, constr
 from typing import Optional, List
 from datetime import datetime
 
 
 class FamilyMemberBase(BaseModel):
-    userId: str
-    name: str
-    email: str
-    role: str
+    userId: str = Field(..., description="User UUID")
+    name: str = Field(..., min_length=2, max_length=50)
+    email: EmailStr
+    role: str = Field(..., pattern="^(owner|admin|member)$")
     joinedAt: datetime
 
 
 class FamilyGroupBase(BaseModel):
-    name: str = Field(..., min_length=1, max_length=255)
-    description: Optional[str] = None
+    name: constr(min_length=1, max_length=255, strip_whitespace=True) = Field(
+        ...,
+        description="Family group name",
+        examples=["The Smith Family"]
+    )
+    description: Optional[constr(max_length=1000)] = Field(
+        None,
+        description="Family group description",
+        max_length=1000
+    )
 
 
 class FamilyGroupCreate(FamilyGroupBase):
     pass
 
 
-class FamilyGroupUpdate(FamilyGroupBase):
-    name: Optional[str] = Field(None, min_length=1, max_length=255)
+class FamilyGroupUpdate(BaseModel):
+    name: Optional[constr(min_length=1, max_length=255, strip_whitespace=True)] = Field(
+        None,
+        description="Family group name"
+    )
+    description: Optional[constr(max_length=1000)] = Field(
+        None,
+        description="Family group description"
+    )
 
 
 class FamilyGroupResponse(BaseModel):
-    id: str
-    name: str
-    description: Optional[str]
-    ownerId: str
-    members: List[FamilyMemberBase]
+    id: str = Field(..., description="Family group UUID")
+    name: str = Field(..., min_length=1, max_length=255)
+    description: Optional[str] = None
+    ownerId: str = Field(..., description="Owner user UUID")
+    members: List[FamilyMemberBase] = Field(default_factory=list)
     createdAt: datetime
 
     class Config:
@@ -37,8 +52,15 @@ class FamilyGroupResponse(BaseModel):
 
 
 class InviteMemberRequest(BaseModel):
-    email: str
-    role: str = Field(default="member", pattern="^(owner|admin|member)$")
+    email: EmailStr = Field(
+        ...,
+        description="Email address of the member to invite",
+        examples=["member@example.com"]
+    )
+    role: constr(pattern="^(owner|admin|member)$") = Field(
+        default="member",
+        description="Role to assign to the member"
+    )
 
 
 class InvitationResponse(BaseModel):

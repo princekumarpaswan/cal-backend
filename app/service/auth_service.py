@@ -1,6 +1,6 @@
 """Service for authentication business logic."""
 from datetime import datetime, timedelta
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Dict, Any
 from app.repository.auth_repository import AuthRepository
 from app.core.security import (
     get_password_hash,
@@ -8,6 +8,7 @@ from app.core.security import (
     create_access_token,
     create_refresh_token,
 )
+from app.core.oauth import verify_oauth_token
 from app.core.config import settings
 from app.api.exceptions import (
     ConflictException,
@@ -100,4 +101,72 @@ class AuthService:
         """Verify email address using token."""
         # TODO: Implement email verification logic
         return True
+    
+    async def oauth_login(
+        self,
+        provider: str,
+        id_token: str,
+        name: Optional[str] = None,
+        timezone: str = "UTC"
+    ) -> Tuple[User, str, str]:
+        """
+        Login or create user via OAuth (Google/Apple).
+        
+        Args:
+            provider: OAuth provider (google or apple)
+            id_token: ID token from the provider
+            name: User's name (optional, for first-time Apple users)
+            timezone: User's timezone
+            
+        Returns:
+            Tuple of (User, access_token, refresh_token)
+        """
+        # Verify the ID token with the provider
+        user_info = await verify_oauth_token(provider, id_token)
+        
+        # Check if user exists by OAuth provider ID
+        user = await self.repository.get_user_by_oauth_provider(
+            provider,
+            user_info["provider_user_id"]
+        )
+        
+        if user:
+            # Existing user - just login
+            # Update avatar if it changed (for Google users)
+            if user_info.get("avatar_url") and user_info["avatar_url"] != user.avatar_url:
+                user.avatar_url = user_info["avatar_url"]
+                await self.repository.db.commit()
+                await self.repository.db.refresh(user)
+        else:
+            # Check if user exists with same email but different auth provider
+            existing_user = await self.repository.get_user_by_email(user_info["email"])
+            
+            if existing_user:
+                # Email exists with different auth method
+                raise ConflictException(
+                    f"An account with email {user_info['email']} already exists. "
+                    f"Please login with {existing_user.auth_provider}."
+                )
+            
+            # New user - create account
+            user_name = name or user_info.get("name") or user_info["email"].split("@")[0]
+            
+            user = await self.repository.create_oauth_user(
+                name=user_name,
+                email=user_info["email"],
+                provider=provider,
+                provider_user_id=user_info["provider_user_id"],
+                email_verified=user_info.get("email_verified", True),  # OAuth emails are typically verified
+                avatar_url=user_info.get("avatar_url"),
+                timezone=timezone
+            )
+        
+        # Generate tokens
+        access_token = create_access_token({"sub": str(user.id)})
+        refresh_token_str = create_refresh_token({"sub": str(user.id)})
+        
+        # Store refresh token
+        await self.repository.create_refresh_token(str(user.id), refresh_token_str)
+        
+        return user, access_token, refresh_token_str
 

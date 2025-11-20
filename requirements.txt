@@ -22,6 +22,7 @@ email-validator==2.2.0
 # Utilities
 python-dotenv==1.0.1
 pytz==2024.2
+httpx==0.27.2  # For OAuth token verification
 
 # Email (for future use)
 aiosmtplib==3.0.2
